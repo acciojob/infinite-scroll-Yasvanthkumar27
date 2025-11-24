@@ -1,98 +1,63 @@
-//your code here!
-// Infinite scroll helper — paste this into the JS pane
-(function() {
-  // Try a bunch of likely selectors used in the exercises
-  const container = document.querySelector(
-    '.infinite-list, .list, #list, .items, .container, .infinite, .scrollbox'
-  ) || document.querySelector('ul, .box, .card'); // last resort
+// Infinite scroll for #infi-list
+window.addEventListener('DOMContentLoaded', function () {
+  const list = document.getElementById('infi-list');
+  if (!list) return;
 
-  if (!container) {
-    console.warn('Infinite scroll: no container found.');
-    return;
-  }
-
-  // Find (or create) a child wrapper to hold items. Many prefills put <div class="items"> with children.
-  // We'll use the container itself as the scrollable area and append item elements directly.
-  const getExistingItems = () =>
-    Array.from(container.querySelectorAll('.item, li, .list-item')).filter(el => el.offsetParent !== null);
-
-  // Helper: create an item element that matches common prefill styles
+  // Helper to create a list item
   function createItem(index) {
-    // Prefer <div class="item"> to match many tests; fallback to <li> if container is a UL
-    const el = container.tagName.toLowerCase() === 'ul' ? document.createElement('li') : document.createElement('div');
-    el.className = 'item';
-    el.textContent = Item ${index};
-    // minimal inline styles in case stylesheet expects them absent
-    if (!el.style.height) el.style.padding = '12px 16px';
-    return el;
+    const li = document.createElement('li');
+    li.textContent = 'Item ' + index;
+    li.style.padding = '8px 4px';
+    return li;
   }
 
-  // Determine starting index from existing items (so we don't duplicate numbering)
-  let existing = getExistingItems();
-  let counter = existing.length;
-  if (counter === 0) {
-    // maybe there are nodes but with different classes; try any children
-    existing = Array.from(container.children).filter(c => c.nodeType === 1);
-    counter = existing.length;
-  }
-
-  // Ensure at least 10 items present by default
-  function ensureInitialItems(min = 10) {
-    while (counter < min) {
-      counter += 1;
-      container.appendChild(createItem(counter));
+  // Count existing items (if any) and ensure at least 10 items
+  let count = list.children.length || 0;
+  if (count === 0) {
+    for (let i = 1; i <= 10; i++) {
+      list.appendChild(createItem(i));
+      count++;
     }
+  } else {
+    // if there are existing children, set counter accordingly
+    count = list.children.length;
   }
 
-  ensureInitialItems(10);
+  // Ensure container is scrollable / visible (prefill likely already sets this)
+  if (getComputedStyle(list).overflowY === 'visible') {
+    list.style.overflowY = 'auto';
+  }
+  if (list.getBoundingClientRect().height === 0) {
+    list.style.minHeight = '200px';
+  }
 
-  // Append n items
-  function appendItems(n = 2) {
+  // Append N items
+  function appendItems(n) {
     for (let i = 0; i < n; i++) {
-      counter += 1;
-      container.appendChild(createItem(counter));
+      count++;
+      list.appendChild(createItem(count));
     }
   }
 
-  // Scroll detection: when user is near bottom, append 2 items.
+  // Scroll handler: when near bottom, add 2 items
   let busy = false;
-  const thresholdPx = 30; // trigger when within 30px of bottom
+  const threshold = 30; // px from bottom to trigger
 
   function onScroll() {
     if (busy) return;
-    const scrollTop = container.scrollTop;
-    const visibleHeight = container.clientHeight;
-    const contentHeight = container.scrollHeight;
+    const scrollTop = list.scrollTop;
+    const visible = list.clientHeight;
+    const total = list.scrollHeight;
 
-    if (contentHeight - (scrollTop + visibleHeight) <= thresholdPx) {
+    if (total - (scrollTop + visible) <= threshold) {
       busy = true;
-      // append items, then allow new events after a small timeout
       appendItems(2);
-      // small timeout prevents rapid multiple appends in fast events
-      setTimeout(() => { busy = false; }, 120);
+      setTimeout(() => { busy = false; }, 150);
     }
   }
 
-  // If the container isn't actually scrollable, ensure style so Cypress or user can scroll:
-  if (getComputedStyle(container).overflowY === 'visible') {
-    container.style.overflowY = 'auto';
-  }
-  // If the container has zero height, give it a modest min-height so it's usable in test runners
-  const rect = container.getBoundingClientRect();
-  if (rect.height === 0) {
-    container.style.minHeight = '240px';
-  }
+  list.addEventListener('scroll', onScroll, { passive: true });
 
-  container.addEventListener('scroll', onScroll, { passive: true });
-
-  // Also support wheel events (some test envs use wheel)
-  container.addEventListener('wheel', () => setTimeout(onScroll, 50), { passive: true });
-
-  // Expose for manual testing in console (optional)
-  window.__infiniteAppend = () => appendItems(2);
-
-  // ensure initial check (in case content already shorter than container)
-  setTimeout(onScroll, 50);
-})();
-
-
+  // Also run a quick check after load in case content is already short
+  setTimeout(onScroll, 60);
+});
